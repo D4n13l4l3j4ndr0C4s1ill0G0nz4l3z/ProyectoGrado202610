@@ -14,9 +14,15 @@
 #define EMBEDDING_SIZE   32
 
 #define NUM_CLASSES      4
-#define INFER_BUTTON_PIN 19
+#define INFER_BUTTON_PIN 4
 
-static const int CLASS_BUTTON_PINS[NUM_CLASSES] = {5, 18, 23, 21};
+#define TOUCH_THRESHOLD 40
+
+static bool isTouched(int pin) {
+    return touchRead(pin) < TOUCH_THRESHOLD;
+}
+
+static const int CLASS_BUTTON_PINS[NUM_CLASSES] = {13, 12, 14, 15};
 
 i2s_pin_config_t i2sPins = {
     .bck_io_num   = 26,
@@ -123,7 +129,7 @@ void buttonTask(void *param)
     {
         for (int c = 0; c < NUM_CLASSES; c++)
         {
-            bool current = digitalRead(CLASS_BUTTON_PINS[c]);
+            bool current = isTouched(CLASS_BUTTON_PINS[c]) ? LOW : HIGH;
 
             if (lastClassState[c] == HIGH && current == LOW) // falling edge
             {
@@ -163,7 +169,7 @@ void buttonTask(void *param)
             lastClassState[c] = current;
         }
 
-        bool currentInfer = digitalRead(INFER_BUTTON_PIN);
+        bool currentInfer = isTouched(INFER_BUTTON_PIN) ? LOW : HIGH;
 
         if (lastInferState == HIGH && currentInfer == LOW) // falling edge
         {
@@ -227,10 +233,6 @@ void setup()
 {
     Serial.begin(921600);
     delay(500);
-
-    pinMode(INFER_BUTTON_PIN, INPUT_PULLUP);
-    for (int i = 0; i < NUM_CLASSES; i++)
-        pinMode(CLASS_BUTTON_PINS[i], INPUT_PULLUP);
 
     memset(classEmbedding,   0, sizeof(classEmbedding));
     memset(classSampleCount, 0, sizeof(classSampleCount));
