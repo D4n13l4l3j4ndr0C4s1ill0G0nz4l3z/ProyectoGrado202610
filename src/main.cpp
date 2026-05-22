@@ -151,12 +151,6 @@ void buttonTask(void *param)
                             Serial.printf("Class %d: embedding updated (n=%d).\n",
                                           c, classSampleCount[c]);
 
-                        // Print the current prototype
-                        Serial.printf("--- Class %d prototype ---\n", c);
-                        for (int i = 0; i < EMBEDDING_SIZE; i++)
-                            Serial.printf("[%02d] %+.6f\n", i, classEmbedding[c][i]);
-                        Serial.println("--------------------------");
-
                         // Send embedding over serial
                         uint8_t embedmarker[] = {0x11, 0x22, 0x33, 0x44};
                         Serial.write(embedmarker, 4);
@@ -182,21 +176,6 @@ void buttonTask(void *param)
                 float embedding[EMBEDDING_SIZE];
                 if (computeNormalizedEmbedding(embedding))
                 {
-                    // Send raw audio over serial
-                    uint8_t audiomarker[] = {0xAA, 0xBB, 0xCC, 0xDD};
-                    Serial.write(audiomarker, 4);
-                    uint32_t audioSize = AUDIO_LENGTH * sizeof(int16_t);
-                    Serial.write((uint8_t *)&audioSize, 4);
-                    RingBufferAccessor *wavReader = i2sSampler.getRingBufferReader();
-                    wavReader->rewind(AUDIO_LENGTH);
-                    for (int i = 0; i < AUDIO_LENGTH; i++)
-                    {
-                        int16_t sample = wavReader->getCurrentSample();
-                        Serial.write((uint8_t *)&sample, 2);
-                        wavReader->moveToNextSample();
-                    }
-                    delete wavReader;
-
                     // Find nearest enrolled class
                     int   bestClass = -1;
                     float bestDist  = 1e9f;
