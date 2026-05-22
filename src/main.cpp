@@ -1,6 +1,8 @@
 #include "I2SMicSampler.h"
 #include "AudioProcessor.h"
 #include "NeuralNetwork.h"
+#include "NimBLEDevice.h"
+
 #include <Arduino.h>
 #include <math.h>
 
@@ -18,11 +20,18 @@
 
 #define TOUCH_THRESHOLD 40
 
+#define SERVICE_UUID        "12345678-1234-1234-1234-123456789abc"
+#define CHARACTERISTIC_UUID "abcdefab-1234-5678-1234-abcdefabcdef"
+
+NimBLECharacteristic* pCharacteristic = nullptr;
+
+
 static bool isTouched(int pin) {
     return touchRead(pin) < TOUCH_THRESHOLD;
 }
 
 static const int CLASS_BUTTON_PINS[NUM_CLASSES] = {13, 12, 14, 15};
+static const String CONTROLMESSAGES[NUM_CLASSES] = {"AD100","AT100","GH100","GA100"};
 
 i2s_pin_config_t i2sPins = {
     .bck_io_num   = 26,
@@ -196,9 +205,11 @@ void buttonTask(void *param)
 
                     if (bestClass < 0)
                         Serial.println("No classes enrolled yet.");
-                    else
-                        Serial.printf(">>> Best match: Class %d (distance %.6f)\n",
-                                      bestClass, bestDist);
+                    else{
+                        Serial.printf(">>> Best match: Class %d (distance %.6f)\n", bestClass, bestDist);
+                        pCharacteristic->setValue(CONTROLMESSAGES[bestClass]);
+                        pCharacteristic->notify();
+                    }
                 }
             }
         }
@@ -212,6 +223,19 @@ void setup()
 {
     Serial.begin(921600);
     delay(500);
+    NimBLEDevice::init("CONTROLLER");
+    
+    NimBLEServer *pServer = NimBLEDevice::createServer();
+    NimBLEService *pService = pServer->createService(SERVICE_UUID);
+    pCharacteristic = pService->createCharacteristic(CHARACTERISTIC_UUID);
+
+    pService->start();
+    pCharacteristic->setValue("ESPERANDO COMANDO DE VOZ...");
+    
+    NimBLEAdvertising *pAdvertising = NimBLEDevice::getAdvertising();
+    pAdvertising->addServiceUUID(SERVICE_UUID); // advertise the UUID of our service
+    pAdvertising->setName("CONTROLLERESP32"); // advertise the device name
+    pAdvertising->start(); 
 
     memset(classEmbedding,   0, sizeof(classEmbedding));
     memset(classSampleCount, 0, sizeof(classSampleCount));
