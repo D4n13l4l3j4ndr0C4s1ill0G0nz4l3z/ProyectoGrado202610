@@ -1,7 +1,7 @@
 #include "I2SMicSampler.h"
 #include "AudioProcessor.h"
 #include "NeuralNetwork.h"
-#include "NimBLEDevice.h"
+#include "BluetoothSerial.h"
 
 #include <Arduino.h>
 #include <math.h>
@@ -20,11 +20,7 @@
 
 #define TOUCH_THRESHOLD 40
 
-#define SERVICE_UUID        "12345678-1234-1234-1234-123456789abc"
-#define CHARACTERISTIC_UUID "abcdefab-1234-5678-1234-abcdefabcdef"
-
-NimBLECharacteristic* pCharacteristic = nullptr;
-
+BluetoothSerial SerialBT;
 
 static bool isTouched(int pin) {
     return touchRead(pin) < TOUCH_THRESHOLD;
@@ -144,7 +140,7 @@ void buttonTask(void *param)
             {
                 if (!spectrogramReady)
                 {
-                    Serial.printf("Class %d button: not ready yet.\n", c);
+                    Serial.printf("Clase %d : No está listo.\n", c);
                 }
                 else
                 {
@@ -178,7 +174,7 @@ void buttonTask(void *param)
         {
             if (!spectrogramReady)
             {
-                Serial.println("Inference button: not ready yet.");
+                Serial.println("Esperar un segundo.");
             }
             else
             {
@@ -194,7 +190,7 @@ void buttonTask(void *param)
                         if (classSampleCount[c] == 0) continue; // not yet enrolled
 
                         float dist = euclideanDistance(embedding, classEmbedding[c], EMBEDDING_SIZE);
-                        Serial.printf("  Distance to class %d: %.6f\n", c, dist);
+                        Serial.printf("  Distancia a clase %d: %.6f\n", c, dist);
 
                         if (dist < bestDist)
                         {
@@ -207,8 +203,7 @@ void buttonTask(void *param)
                         Serial.println("No classes enrolled yet.");
                     else{
                         Serial.printf(">>> Best match: Class %d (distance %.6f)\n", bestClass, bestDist);
-                        pCharacteristic->setValue(CONTROLMESSAGES[bestClass]);
-                        pCharacteristic->notify();
+                        SerialBT.println(CONTROLMESSAGES[bestClass]);
                     }
                 }
             }
@@ -223,20 +218,15 @@ void setup()
 {
     Serial.begin(921600);
     delay(500);
-    NimBLEDevice::init("CONTROLLER");
-    
-    NimBLEServer *pServer = NimBLEDevice::createServer();
-    NimBLEService *pService = pServer->createService(SERVICE_UUID);
-    pCharacteristic = pService->createCharacteristic(CHARACTERISTIC_UUID);
 
-    pService->start();
-    pCharacteristic->setValue("ESPERANDO COMANDO DE VOZ...");
+    if (!SerialBT.begin("CONTROLLERESP32"))
+    {
+        Serial.println("Bluetooth init failed!");
+        while (true) {}
+    }
     
-    NimBLEAdvertising *pAdvertising = NimBLEDevice::getAdvertising();
-    pAdvertising->addServiceUUID(SERVICE_UUID); // advertise the UUID of our service
-    pAdvertising->setName("CONTROLLERESP32"); // advertise the device name
-    pAdvertising->start(); 
-
+    Serial.println("Bluetooth Encendido");
+    
     memset(classEmbedding,   0, sizeof(classEmbedding));
     memset(classSampleCount, 0, sizeof(classSampleCount));
 
@@ -265,6 +255,7 @@ void setup()
         .fixed_mclk           = 0
     };
     ((I2SSampler &)i2sSampler).start(I2S_NUM_0, i2sConfig, processorTaskHandle);
+    Serial.printf("Free heap: %u\n", ESP.getFreeHeap());
 }
 
 void loop()
