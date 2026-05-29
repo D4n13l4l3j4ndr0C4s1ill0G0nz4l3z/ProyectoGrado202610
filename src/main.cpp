@@ -150,11 +150,14 @@ void buttonTask(void *param)
                         bool isFirst = (classSampleCount[c] == 0);
                         updateClassEmbedding(c, embedding);
 
-                        if (isFirst)
+                        if (isFirst){
                             Serial.printf("Class %d: first embedding stored.\n", c);
+                        }
                         else
+                        {
                             Serial.printf("Class %d: embedding updated (n=%d).\n",
                                           c, classSampleCount[c]);
+                        }
 
                         // Send embedding over serial
                         uint8_t embedmarker[] = {0x11, 0x22, 0x33, 0x44};
